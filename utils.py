@@ -40,6 +40,7 @@ def exact_match(predict_answer, answer):
 
 def f1(predict_answer, answer, context):
     batch_size = answer[0].shape[0]
+    total_f1 = 0
     for batch_idx in range(batch_size):
         pred_start, pred_end = predict_answer[batch_idx]
         real_start, real_end = answer[0][batch_idx].item(), answer[1][batch_idx].item()
@@ -62,7 +63,8 @@ def f1(predict_answer, answer, context):
         precise = TT / (TT + FT)
         recall = TT / (TT + TF)
         f1_value = 0.0 if precise + recall == 0 else 2.0 * precise * recall / (precise + recall)
-        return f1_value
+        total_f1 += f1_value
+    return total_f1
 
 
 def sort_seq_by_len(batch, sequence_length):

@@ -103,7 +103,8 @@ def train(train_dir,
           decay_rate=0.999,
           max_grad_norm=10.0,
           patience_max=5,
-          dropout=0.2):
+          dropout=0.2,
+          history_checkpoint_dir=None):
     device = torch.device('cuda:0' if torch.cuda.is_available() else "cpu")
 
     print('=' * 20, 'Preparing for train data', '=' * 20)
@@ -141,12 +142,27 @@ def train(train_dir,
     for name, param in model.named_parameters():
         if param.requires_grad:
             ema.register(name, param.data)
+    start_epoch = 1
+    train_history, dev_history = list(), list()
+    if history_checkpoint_dir is not None:
+        print('=' * 20, 'Loading Checkpoint and resume training... ', '=' * 20)
+        checkpoint = torch.load(history_checkpoint_dir)
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        ema = checkpoint['ema']
+        train_history = checkpoint['train_loss_history']
+        dev_history = checkpoint['dev_loss_history']
+        start_epoch = checkpoint['epoch_cnt']
+        for idx in range(len(train_history)):
+            print('* epoch {}'.format(idx + 1))
+            print('->train: loss={}, em={}, f1={}'.format(train_history[idx][0], train_history[idx][1], train_history[idx][2]))
+            print('->dev: loss={}, em={}, f1={}'.format(dev_history[idx][0], dev_history[idx][1], dev_history[idx][2]))
 
     print('\n', '=' * 20, 'Train BIDAF model on device: {}'.format(device), '=' * 20, '\n')
 
     best_f1 = 0.0
     patience_count = 0
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch, epochs + 1):
 
         train_loss, train_em, train_f1 = train_epoch(model=model,
                                                      criterion=criterion,
@@ -157,15 +173,22 @@ def train(train_dir,
                                                      decay_rate=decay_rate)
         print('* Train epoch {}'.format(epoch))
         print('-> loss={}, em={}, f1={}'.format(train_loss, train_em, train_f1))
+        train_history.append((train_loss, train_em, train_f1))
 
         dev_loss, dev_em, dev_f1 = valid_epoch(model=model,
                                                criterion=criterion,
                                                dev_loader=dev_loader)
         print('* Valid epoch {}'.format(epoch))
         print('-> loss={}, em={}, f1={}'.format(dev_loss, dev_em, dev_f1))
+        dev_history.append((dev_loss, dev_em, dev_f1))
 
         if dev_f1 > best_f1:
-            torch.save({'model': model.state_dict()},
+            torch.save({'model': model.state_dict(),
+                        'optimizer': optimizer.state_dict(),
+                        'ema': ema,
+                        'train_loss': train_history,
+                        'dev_loss': dev_history,
+                        'epoch_cnt': epoch + 1},
                        os.path.join(checkpoint_dir, 'bidaf_{}.pth.tar'.format(epoch)))
             patience_count = 0
         else:
