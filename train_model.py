@@ -150,8 +150,8 @@ def train(train_dir,
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         ema = checkpoint['ema']
-        train_history = checkpoint['train_loss_history']
-        dev_history = checkpoint['dev_loss_history']
+        train_history = checkpoint['train_history']
+        dev_history = checkpoint['dev_history']
         start_epoch = checkpoint['epoch_cnt']
         for idx in range(len(train_history)):
             print('* epoch {}'.format(idx + 1))
@@ -186,8 +186,8 @@ def train(train_dir,
             torch.save({'model': model.state_dict(),
                         'optimizer': optimizer.state_dict(),
                         'ema': ema,
-                        'train_loss': train_history,
-                        'dev_loss': dev_history,
+                        'train_history': train_history,
+                        'dev_history': dev_history,
                         'epoch_cnt': epoch + 1},
                        os.path.join(checkpoint_dir, 'bidaf_{}.pth.tar'.format(epoch)))
             patience_count = 0
